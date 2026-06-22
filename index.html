@@ -1,0 +1,1672 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Network Topology Simulator</title>
+    <style>
+        /* --- FUTURISTIC BLUE GLASSMORPHISM THEME --- */
+        :root {
+            --bg-dark: #060b26;
+            --bg-card: rgba(13, 27, 42, 0.65);
+            --border-glass: rgba(0, 180, 216, 0.25);
+            --primary: #00b4d8;
+            --secondary: #90e0ef;
+            --accent: #7209b7;
+            --success: #4cc9f0;
+            --danger: #f72585;
+            --text: #e2e8f0;
+            --text-dim: #94a3b8;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            user-select: none;
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            color: var(--text);
+            overflow-x: hidden;
+            background-image: 
+                radial-gradient(at 0% 0%, rgba(114, 9, 183, 0.15) 0px, transparent 50%),
+                radial-gradient(at 100% 100%, rgba(0, 180, 216, 0.15) 0px, transparent 50%);
+            min-height: 100vh;
+        }
+
+        /* --- BACKGROUND ANIMATED NODES --- */
+        #bg-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: -1;
+            pointer-events: none;
+            opacity: 0.3;
+        }
+
+        /* --- NAVIGATION --- */
+        header {
+            background: rgba(6, 11, 38, 0.85);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--border-glass);
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            padding: 0.5rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .logo-icon {
+            width: 32px;
+            height: 32px;
+            background: linear-gradient(135deg, var(--primary), var(--accent));
+            border-radius: 50%;
+            box-shadow: 0 0 15px var(--primary);
+        }
+
+        .logo-text {
+            font-weight: 800;
+            font-size: 1.4rem;
+            letter-spacing: 1px;
+            background: linear-gradient(90deg, #fff, var(--secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        nav ul {
+            display: flex;
+            list-style: none;
+            gap: 0.5rem;
+        }
+
+        nav button {
+            background: transparent;
+            border: 1px solid transparent;
+            color: var(--text-dim);
+            padding: 0.6rem 1.2rem;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+
+        nav button:hover, nav button.active {
+            color: #fff;
+            background: rgba(0, 180, 216, 0.15);
+            border-color: var(--border-glass);
+            box-shadow: 0 0 10px rgba(0, 180, 216, 0.2);
+            text-shadow: 0 0 8px #fff;
+        }
+
+        /* --- LAYOUT STRUCTURE --- */
+        main {
+            max-width: 1600px;
+            margin: 2rem auto;
+            padding: 0 2rem;
+        }
+
+        .page-route {
+            display: none;
+            animation: fadeIn 0.5s ease forwards;
+        }
+
+        .page-route.active-page {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .two-column-layout {
+            display: grid;
+            grid-template-columns: 1fr 380px;
+            gap: 2rem;
+        }
+
+        @media (max-width: 1024px) {
+            .two-column-layout {
+                grid-template-columns: 1fr;
+            }
+            header {
+                flex-direction: column;
+                gap: 1rem;
+                padding: 1rem;
+            }
+            nav ul {
+                flex-wrap: wrap;
+                justify-content: center;
+            }
+        }
+
+        /* --- GLASSMORPHISM CARD --- */
+        .glass-card {
+            background: var(--bg-card);
+            backdrop-filter: blur(16px);
+            border: 1px solid var(--border-glass);
+            border-radius: 16px;
+            padding: 1.5rem;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+            margin-bottom: 1.5rem;
+        }
+
+        h2 {
+            font-size: 1.8rem;
+            margin-bottom: 1rem;
+            color: #fff;
+            border-bottom: 2px solid var(--border-glass);
+            padding-bottom: 0.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        h3 {
+            color: var(--secondary);
+            margin-bottom: 0.8rem;
+        }
+
+        p {
+            color: var(--text-dim);
+            line-height: 1.6;
+            margin-bottom: 1rem;
+        }
+
+        /* --- SIMULATOR CANVAS WORKSPACE --- */
+        .simulator-window {
+            position: relative;
+            width: 100%;
+            height: 550px;
+            background: rgba(4, 8, 24, 0.8);
+            border-radius: 12px;
+            border: 1px dashed rgba(0, 180, 216, 0.4);
+            overflow: hidden;
+        }
+
+        .svg-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+            pointer-events: auto;
+        }
+
+        .nodes-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 2;
+            pointer-events: none;
+        }
+
+        /* --- DRAGGABLE INTERACTIVE NODES --- */
+        .node {
+            position: absolute;
+            width: 60px;
+            height: 60px;
+            background: radial-gradient(circle, #102a43 0%, #061626 100%);
+            border: 2px solid var(--primary);
+            border-radius: 12px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            cursor: move;
+            pointer-events: auto;
+            transform: translate(-30px, -30px);
+            transition: box-shadow 0.2s;
+            box-shadow: 0 0 15px rgba(0, 180, 216, 0.2);
+        }
+
+        .node:hover {
+            box-shadow: 0 0 25px rgba(0, 180, 216, 0.6);
+            border-color: #fff;
+        }
+
+        .node.active-node {
+            border-color: var(--success);
+            box-shadow: 0 0 25px var(--success);
+            animation: pulse 1.5s infinite alternate;
+        }
+
+        .node.failed-node {
+            border-color: var(--danger);
+            box-shadow: 0 0 25px var(--danger);
+            background: #2d0a19;
+        }
+
+        @keyframes pulse {
+            from { transform: translate(-30px, -30px) scale(1); }
+            to { transform: translate(-30px, -30px) scale(1.05); }
+        }
+
+        .node-icon {
+            font-size: 1.4rem;
+        }
+
+        .node-label {
+            font-size: 0.75rem;
+            color: #fff;
+            margin-top: 2px;
+            font-weight: 600;
+        }
+
+        /* --- SVG NETWORKING ELEMENTS --- */
+        .network-link {
+            stroke: var(--primary);
+            stroke-width: 3;
+            cursor: pointer;
+            transition: stroke 0.3s, stroke-width 0.3s;
+        }
+
+        .network-link:hover {
+            stroke: var(--secondary);
+            stroke-width: 5;
+        }
+
+        .network-link.failed-link {
+            stroke: var(--danger);
+            stroke-dasharray: 6;
+            animation: dash 1s linear infinite;
+        }
+
+        @keyframes dash {
+            to { stroke-dashoffset: -12; }
+        }
+
+        .network-link.active-path {
+            stroke: var(--success);
+            stroke-width: 5;
+        }
+
+        .data-packet {
+            fill: #fff;
+            filter: drop-shadow(0 0 8px var(--success));
+        }
+
+        /* --- CONTROLS BAR --- */
+        .control-panel {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, rgba(0, 180, 216, 0.3), rgba(114, 9, 183, 0.3));
+            border: 1px solid var(--border-glass);
+            color: #fff;
+            padding: 0.6rem 1.2rem;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.3s ease;
+        }
+
+        .btn:hover {
+            background: linear-gradient(135deg, rgba(0, 180, 216, 0.5), rgba(114, 9, 183, 0.5));
+            border-color: var(--secondary);
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 180, 216, 0.3);
+        }
+
+        .btn-danger {
+            background: rgba(247, 37, 133, 0.2);
+            border-color: rgba(247, 37, 133, 0.4);
+        }
+        .btn-danger:hover {
+            background: rgba(247, 37, 133, 0.4);
+            border-color: var(--danger);
+            box-shadow: 0 5px 15px rgba(247, 37, 133, 0.3);
+        }
+
+        .input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        label {
+            font-size: 0.85rem;
+            color: var(--text-dim);
+        }
+
+        select {
+            background: var(--bg-dark);
+            border: 1px solid var(--border-glass);
+            color: #fff;
+            padding: 0.5rem;
+            border-radius: 6px;
+            outline: none;
+        }
+
+        /* --- LEARNING MODE / SIDEBAR --- */
+        .sidebar-logs {
+            height: 250px;
+            background: rgba(0,0,0,0.3);
+            border-radius: 8px;
+            padding: 0.8rem;
+            overflow-y: auto;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 0.85rem;
+            border: 1px solid rgba(255,255,255,0.05);
+        }
+
+        .log-entry {
+            margin-bottom: 6px;
+            padding-bottom: 4px;
+            border-bottom: 1px solid rgba(255,255,255,0.02);
+        }
+        .log-info { color: var(--secondary); }
+        .log-success { color: var(--success); }
+        .log-warning { color: var(--danger); }
+
+        .educational-tip {
+            background: rgba(114, 9, 183, 0.15);
+            border-left: 4px solid var(--accent);
+            padding: 0.8rem;
+            border-radius: 0 8px 8px 0;
+            font-size: 0.9rem;
+        }
+
+        /* --- COMPARISON DASHBOARD --- */
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+        }
+
+        @media (max-width: 768px) {
+            .dashboard-grid { grid-template-columns: 1fr; }
+        }
+
+        .slider-container {
+            margin-bottom: 1.5rem;
+        }
+
+        .slider-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 0.5rem;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            accent-color: var(--primary);
+            background: rgba(255,255,255,0.1);
+            height: 6px;
+            border-radius: 5px;
+            outline: none;
+        }
+
+        .metrics-card {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+
+        .metric-box {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 10px;
+            padding: 1rem;
+            text-align: center;
+        }
+
+        .metric-val {
+            font-size: 1.6rem;
+            font-weight: 700;
+            color: var(--success);
+            margin-top: 5px;
+        }
+
+        /* --- QUIZ SYSTEM --- */
+        .quiz-container {
+            max-width: 700px;
+            margin: 0 auto;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 4px;
+            margin-bottom: 1.5rem;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--primary), var(--success));
+            width: 0%;
+            transition: width 0.3s;
+        }
+
+        .options-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.8rem;
+            margin-top: 1.5rem;
+        }
+
+        .option-btn {
+            background: rgba(255,255,255,0.04);
+            border: 1px solid var(--border-glass);
+            color: #fff;
+            padding: 1rem;
+            border-radius: 10px;
+            text-align: left;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 1rem;
+        }
+
+        .option-btn:hover:not([disabled]) {
+            background: rgba(0, 180, 216, 0.15);
+            border-color: var(--primary);
+        }
+
+        .option-btn.correct {
+            background: rgba(76, 201, 240, 0.25) !important;
+            border-color: var(--success) !important;
+        }
+
+        .option-btn.wrong {
+            background: rgba(247, 37, 133, 0.25) !important;
+            border-color: var(--danger) !important;
+        }
+
+        /* --- GAMIFICATION GAME --- */
+        .game-canvas-wrapper {
+            position: relative;
+            width: 100%;
+            max-width: 800px;
+            margin: 0 auto;
+            text-align: center;
+        }
+
+        #game-canvas {
+            background: #040818;
+            border: 2px solid var(--primary);
+            border-radius: 12px;
+            box-shadow: 0 0 20px rgba(0, 180, 216, 0.3);
+            display: block;
+            margin: 1rem auto;
+            max-width: 100%;
+        }
+
+        .game-ui {
+            display: flex;
+            justify-content: space-around;
+            font-size: 1.2rem;
+            font-weight: bold;
+            margin-bottom: 1rem;
+            color: var(--secondary);
+        }
+
+        /* --- UTILITY & DECORATION --- */
+        .badge {
+            background: var(--accent);
+            padding: 0.2rem 0.6rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+
+    <canvas id="bg-canvas"></canvas>
+
+    <header>
+        <div class="logo-container">
+            <div class="logo-icon"></div>
+            <div class="logo-text">NET-MORPH</div>
+        </div>
+        <nav>
+            <ul>
+                <li><button onclick="routeTo('home')" id="nav-home" class="active">Home</button></li>
+                <li><button onclick="routeTo('ring')" id="nav-ring">Ring Simulator</button></li>
+                <li><button onclick="routeTo('tree')" id="nav-tree">Tree Simulator</button></li>
+                <li><button onclick="routeTo('comparison')" id="nav-comparison">Comparison</button></li>
+                <li><button onclick="routeTo('quiz')" id="nav-quiz">Quiz</button></li>
+                <li><button onclick="routeTo('gamification')" id="nav-gamification">🕹️ Game Mode</button></li>
+            </ul>
+        </nav>
+    </header>
+
+    <main>
+
+        <div id="page-home" class="page-route active-page">
+            <div class="glass-card" style="text-align: center; padding: 3rem 1.5rem;">
+                <h1 style="font-size: 3rem; margin-bottom: 1rem; background: linear-gradient(90deg, #fff, var(--primary)); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+                    Next-Gen Network Topology Simulator
+                </h1>
+                <p style="font-size: 1.2rem; max-width: 800px; margin: 0 auto 2rem auto;">
+                    Visualize structural systems configurations, inspect transmission paths, run interactive node structural damage testings, evaluate physical layer architecture deployments, and master real-world networking mechanics in real time.
+                </p>
+                <div style="display: flex; justify-content: center; gap: 1.5rem; flex-wrap: wrap;">
+                    <button class="btn" onclick="routeTo('ring')">Launch Ring Simulator</button>
+                    <button class="btn" onclick="routeTo('tree')">Launch Tree Simulator</button>
+                    <button class="btn" onclick="routeTo('gamification')">Play Topology Game</button>
+                </div>
+            </div>
+            
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem;">
+                <div class="glass-card">
+                    <h3>💍 Ring Network Infrastructure</h3>
+                    <p>Features seamless point-to-point physical circular connectivity loopings. Highly structured but susceptible to whole loop link drops.</p>
+                </div>
+                <div class="glass-card">
+                    <h3>🌲 Hierarchical Tree Infrastructure</h3>
+                    <p>Parent-child branched distribution networking. Inherits core structural vulnerabilities if centralized hubs drop out.</p>
+                </div>
+                <div class="glass-card">
+                    <h3>📊 Cost &amp; Engineering Auditing</h3>
+                    <p>Dynamically scale network layout pricing metrics, deployment footprints, physical structures, and operational structural parameters instantly.</p>
+                </div>
+            </div>
+        </div>
+
+        <div id="page-ring" class="page-route">
+            <div class="two-column-layout">
+                <div>
+                    <div class="glass-card">
+                        <h2>Ring Topology Workspace <span class="badge" id="ring-failure-badge">All Systems Nominal</span></h2>
+                        
+                        <div class="simulator-window" id="ring-window">
+                            <svg class="svg-canvas" id="ring-svg"></svg>
+                            <div class="nodes-layer" id="ring-nodes-layer"></div>
+                        </div>
+
+                        <div class="control-panel">
+                            <div class="input-group">
+                                <label>Source Node</label>
+                                <select id="ring-source"></select>
+                            </div>
+                            <div class="input-group">
+                                <label>Destination Node</label>
+                                <select id="ring-dest"></select>
+                            </div>
+                            <button class="btn" onclick="triggerRingTransmission()">🚀 Send Data Packet</button>
+                            <button class="btn" onclick="addRingNode()">➕ Add Node</button>
+                            <button class="btn" onclick="removeRingNode()">➖ Remove Node</button>
+                            <button class="btn btn-danger" onclick="resetRingNetwork()">🔄 Reset Network</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <div class="glass-card">
+                        <h3>Learning Hub</h3>
+                        <p class="educational-tip">
+                            <strong>Ring Topology:</strong> Tokens or packets flow unidirectionally or bidirectionally around a loop. <strong>Click any connecting wire line</strong> to split it and simulate a direct cable layout breakdown.
+                        </p>
+                    </div>
+                    <div class="glass-card">
+                        <h3>Activity System Monitor</h3>
+                        <div class="sidebar-logs" id="ring-logs"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="page-tree" class="page-route">
+            <div class="two-column-layout">
+                <div>
+                    <div class="glass-card">
+                        <h2>Hierarchical Tree Topology Workspace</h2>
+                        
+                        <div class="simulator-window" id="tree-window">
+                            <svg class="svg-canvas" id="tree-svg"></svg>
+                            <div class="nodes-layer" id="tree-nodes-layer"></div>
+                        </div>
+
+                        <div class="control-panel">
+                            <div class="input-group">
+                                <label>Source Node</label>
+                                <select id="tree-source"></select>
+                            </div>
+                            <div class="input-group">
+                                <label>Destination Node</label>
+                                <select id="tree-dest"></select>
+                            </div>
+                            <button class="btn" onclick="triggerTreeTransmission()">🚀 Send Data Packet</button>
+                            <button class="btn btn-danger" onclick="resetTreeNetwork()">🔄 Restore Hub Failures</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <div class="glass-card">
+                        <h3>Learning Hub</h3>
+                        <p class="educational-tip">
+                            <strong>Tree Topology:</strong> Integrates elements of Star and Bus layouts. Root Hub feeds intermediate Branch Hubs down to End-device Nodes. <strong>Click any dynamic Hub node</strong> directly to isolate and break off that entire localized infrastructure tier down-link.
+                        </p>
+                    </div>
+                    <div class="glass-card">
+                        <h3>Activity System Monitor</h3>
+                        <div class="sidebar-logs" id="tree-logs"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="page-comparison" class="page-route">
+            <div class="glass-card">
+                <h2>Interactive Topology Analytical Comparison Dashboard</h2>
+                <p>Modify network configuration vectors directly below to track theoretical pricing footprints, scaling curves, structural load handling, and structural tolerances.</p>
+                
+                <div class="dashboard-grid">
+                    <div>
+                        <h3>Simulation Scaler Variables</h3>
+                        <div class="slider-container">
+                            <div class="slider-header"><span>Target Footprint Node Metric Count</span><span id="val-nodes">12</span></div>
+                            <input type="range" id="slide-nodes" min="4" max="40" value="12" oninput="updateComparison()">
+                        </div>
+                        <div class="slider-container">
+                            <div class="slider-header"><span>Cable Standard Unit Value Pricing ($/m)</span><span id="val-cable">25</span></div>
+                            <input type="range" id="slide-cable" min="10" max="100" value="25" oninput="updateComparison()">
+                        </div>
+                        <div class="slider-container">
+                            <div class="slider-header"><span>Hub Concentrator Fixed Infrastructure Cost ($)</span><span id="val-hub">250</span></div>
+                            <input type="range" id="slide-hub" min="100" max="1000" value="250" oninput="updateComparison()">
+                        </div>
+                    </div>
+
+                    <div>
+                        <h3>Comparative Assessment Output Matrix</h3>
+                        <div style="margin-top:0.5rem;">
+                            <h4 style="color:var(--primary)">Ring Distribution Scheme</h4>
+                            <div class="metrics-card">
+                                <div class="metric-box"><div>Total Pricing Layout</div><div class="metric-val" id="ring-cost">$0</div></div>
+                                <div class="metric-box"><div>System Resilience</div><div class="metric-val" id="ring-rel">Low</div></div>
+                                <div class="metric-box"><div>Growth Scalability</div><div class="metric-val" id="ring-scale">Med</div></div>
+                            </div>
+                        </div>
+                        <div style="margin-top:1.5rem;">
+                            <h4 style="color:var(--secondary)">Hierarchical Branching Tree Scheme</h4>
+                            <div class="metrics-card">
+                                <div class="metric-box"><div>Total Pricing Layout</div><div class="metric-val" id="tree-cost">$0</div></div>
+                                <div class="metric-box"><div>System Resilience</div><div class="metric-val" id="tree-rel">High</div></div>
+                                <div class="metric-box"><div>Growth Scalability</div><div class="metric-val" id="tree-scale">High</div></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="page-quiz" class="page-route">
+            <div class="glass-card quiz-container">
+                <h2>Network Engineering Competency Certification</h2>
+                <div class="progress-bar"><div class="progress-fill" id="quiz-progress"></div></div>
+                
+                <div id="quiz-body">
+                    </div>
+            </div>
+        </div>
+
+        <div id="page-gamification" class="page-route">
+            <div class="glass-card text-center" style="text-align: center;">
+                <h2>Become the Data Packet Mode</h2>
+                <p>Take direct raw tactile execution control over an active structural frame! Use the <strong>Arrow Keys / WASD</strong> to steer the glowing data node to the blinking Target Terminal without clipping broken structural elements.</p>
+                
+                <div class="game-ui">
+                    <div>Score Points: <span id="game-score" style="color:#fff;">0</span></div>
+                    <div>Active Layout: <span id="game-layout-type" style="color:var(--success)">Ring Subsystem</span></div>
+                    <div>Status: <span id="game-status" style="color:var(--secondary)">Ready</span></div>
+                </div>
+
+                <div class="game-canvas-wrapper">
+                    <canvas id="game-canvas" width="800" height="450"></canvas>
+                </div>
+
+                <div class="control-panel" style="justify-content: center;">
+                    <button class="btn" onclick="initGame('ring')">🎮 Map Mode: Ring Loop</button>
+                    <button class="btn" onclick="initGame('tree')">🎮 Map Mode: Tree Array</button>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <script>
+        /* ==========================================================================
+           GLOBAL & BACKGROUND MANAGEMENT SYSTEM 
+           ========================================================================== */
+        function routeTo(pageId) {
+            document.querySelectorAll('.page-route').forEach(el => el.classList.remove('active-page'));
+            document.querySelectorAll('nav button').forEach(el => el.classList.remove('active'));
+            
+            document.getElementById(`page-${pageId}`).classList.add('active-page');
+            document.getElementById(`nav-${pageId}`).classList.add('active');
+            
+            if(pageId === 'comparison') updateComparison();
+            if(pageId === 'gamification') initGame('ring');
+        }
+
+        // Animated Background Node Vector Core Mesh
+        const bgCanvas = document.getElementById('bg-canvas');
+        const bgCtx = bgCanvas.getContext('2d');
+        let bgNodes = [];
+
+        function resizeBgCanvas() {
+            bgCanvas.width = window.innerWidth;
+            bgCanvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resizeBgCanvas);
+        resizeBgCanvas();
+
+        for (let i = 0; i < 45; i++) {
+            bgNodes.push({
+                x: Math.random() * window.innerWidth,
+                y: Math.random() * window.innerHeight,
+                vx: (Math.random() - 0.5) * 0.6,
+                vy: (Math.random() - 0.5) * 0.6,
+                radius: Math.random() * 2.5 + 1
+            });
+        }
+
+        function animateBackground() {
+            bgCtx.clearRect(0, 0, bgCanvas.width, bgCanvas.height);
+            bgCtx.fillStyle = "rgba(0, 180, 216, 0.4)";
+            bgCtx.strokeStyle = "rgba(0, 180, 216, 0.05)";
+            
+            for (let i = 0; i < bgNodes.length; i++) {
+                let n = bgNodes[i];
+                n.x += n.vx;
+                n.y += n.vy;
+                if (n.x < 0 || n.x > bgCanvas.width) n.vx *= -1;
+                if (n.y < 0 || n.y > bgCanvas.height) n.vy *= -1;
+                
+                bgCtx.beginPath();
+                bgCtx.arc(n.x, n.y, n.radius, 0, Math.PI * 2);
+                bgCtx.fill();
+
+                for (let j = i + 1; j < bgNodes.length; j++) {
+                    let n2 = bgNodes[j];
+                    let dist = Math.hypot(n.x - n2.x, n.y - n2.y);
+                    if (dist < 140) {
+                        bgCtx.beginPath();
+                        bgCtx.moveTo(n.x, n.y);
+                        bgCtx.lineTo(n2.x, n2.y);
+                        bgCtx.stroke();
+                    }
+                }
+            }
+            requestAnimationFrame(animateBackground);
+        }
+        animateBackground();
+/* ==========================================================================
+           DRAG AND DROP REUSABLE COMPONENT ENGINE 
+           ========================================================================== */
+        function makeNodeDraggable(nodeEl, onDragCallback) {
+            let pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
+            nodeEl.onmousedown = dragMouseDown;
+            nodeEl.ontouchstart = dragMouseDown;
+
+            function dragMouseDown(e) {
+                e = e || window.event;
+                if(e.type !== 'touchstart') e.preventDefault();
+                pos3 = e.type === 'touchstart' ? e.touches[0].clientX : e.clientX;
+                pos4 = e.type === 'touchstart' ? e.touches[0].clientY : e.clientY;
+                document.onmouseup = closeDragElement;
+                document.ontouchend = closeDragElement;
+                document.onmousemove = elementDrag;
+                document.ontouchmove = elementDrag;
+            }
+
+            function elementDrag(e) {
+                e = e || window.event;
+                let clientX = e.type === 'touchmove' ? e.touches[0].clientX : e.clientX;
+                let clientY = e.type === 'touchmove' ? e.touches[0].clientY : e.clientY;
+                pos1 = pos3 - clientX;
+                pos2 = pos4 - clientY;
+                pos3 = clientX;
+                pos4 = clientY;
+
+                let parentRect = nodeEl.parentElement.getBoundingClientRect();
+                let newTop = nodeEl.offsetTop - pos2;
+                let newLeft = nodeEl.offsetLeft - pos1;
+
+                // Lock boundaries safely inside canvas wrapper frame boundaries
+                if (newLeft >= 30 && newLeft <= parentRect.width - 30) {
+                    nodeEl.style.left = newLeft + "px";
+                }
+                if (newTop >= 30 && newTop <= parentRect.height - 30) {
+                    nodeEl.style.top = newTop + "px";
+                }
+
+                onDragCallback(nodeEl.id, parseFloat(nodeEl.style.left), parseFloat(nodeEl.style.top));
+            }
+
+            function closeDragElement() {
+                document.onmouseup = null;
+                document.onmousemove = null;
+                document.ontouchend = null;
+                document.ontouchmove = null;
+            }
+        }
+
+
+        /* ==========================================================================
+           RING NET TOPOLOGY INFRASTRUCTURE CORE 
+           ========================================================================== */
+        let ringNodes = [];
+        let brokenRingIndex = -1; // No links broken implicitly default configuration state
+
+        function logToRing(msg, type='info') {
+            const container = document.getElementById('ring-logs');
+            container.innerHTML += `<div class="log-entry log-${type}">[${new Date().toLocaleTimeString()}] ${msg}</div>`;
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function buildRingSelectors() {
+            const srcSel = document.getElementById('ring-source');
+            const dstSel = document.getElementById('ring-dest');
+            srcSel.innerHTML = ''; dstSel.innerHTML = '';
+            ringNodes.forEach(n => {
+                srcSel.innerHTML += `<option value="${n.id}">Node ${n.label}</option>`;
+                dstSel.innerHTML += `<option value="${n.id}">Node ${n.label}</option>`;
+            });
+            if(ringNodes.length > 1) dstSel.selectedIndex = 1;
+        }
+
+        function drawRingConnections() {
+            const svg = document.getElementById('ring-svg');
+            svg.innerHTML = '';
+            
+            for(let i=0; i<ringNodes.length; i++) {
+                let nextIdx = (i + 1) % ringNodes.length;
+                let n1 = ringNodes[i];
+                let n2 = ringNodes[nextIdx];
+                
+                let line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+                line.setAttribute("x1", n1.x);
+                line.setAttribute("y1", n1.y);
+                line.setAttribute("x2", n2.x);
+                line.setAttribute("y2", n2.y);
+                line.setAttribute("class", `network-link ${brokenRingIndex === i ? 'failed-link' : ''}`);
+                line.id = `ring-link-${i}`;
+                
+                // Clicking connection toggles network topology loop breakage
+                line.onclick = () => {
+                    if (brokenRingIndex === i) {
+                        brokenRingIndex = -1;
+                        document.getElementById('ring-failure-badge').innerText = "All Systems Nominal";
+                        document.getElementById('ring-failure-badge').style.background = "var(--accent)";
+                        logToRing(`Cable segment between Node ${n1.label} and Node ${n2.label} repaired completely.`, 'success');
+                    } else {
+                        brokenRingIndex = i;
+                        document.getElementById('ring-failure-badge').innerText = "LINK COLLAPSE FAILURE DETECTED";
+                        document.getElementById('ring-failure-badge').style.background = "var(--danger)";
+                        logToRing(`Cable segmented split executed between Node ${n1.label} and Node ${n2.label}! Ring infrastructure disrupted.`, 'warning');
+                    }
+                    drawRingConnections();
+                };
+                svg.appendChild(line);
+            }
+        }
+
+        function renderRingNodes() {
+            const layer = document.getElementById('ring-nodes-layer');
+            layer.innerHTML = '';
+            ringNodes.forEach(n => {
+                let div = document.createElement('div');
+                div.id = n.id;
+                div.className = "node";
+                div.style.left = n.x + "px";
+                div.style.top = n.y + "px";
+                div.innerHTML = `<div class="node-icon">💻</div><div class="node-label">N-${n.label}</div>`;
+                layer.appendChild(div);
+
+                makeNodeDraggable(div, (id, newX, newY) => {
+                    let targetNode = ringNodes.find(node => node.id === id);
+                    if(targetNode) {
+                        targetNode.x = newX;
+                        targetNode.y = newY;
+                        drawRingConnections();
+                    }
+                });
+            });
+        }
+
+        function initRingDefault() {
+            ringNodes = [];
+            brokenRingIndex = -1;
+            document.getElementById('ring-failure-badge').innerText = "All Systems Nominal";
+            document.getElementById('ring-failure-badge').style.background = "var(--accent)";
+            
+            const centerX = 350;
+            const centerY = 260;
+            const radius = 160;
+            
+            for(let i=0; i<6; i++) {
+                let angle = (i * 2 * Math.PI) / 6;
+                ringNodes.push({
+                    id: `ring-n-${i}`,
+                    label: String.fromCharCode(65 + i),
+                    x: centerX + radius * Math.cos(angle),
+                    y: centerY + radius * Math.sin(angle)
+                });
+            }
+            renderRingNodes();
+            drawRingConnections();
+            buildRingSelectors();
+            logToRing("Initialized 6-Node symmetrical operational Ring Network Array loop successfully.", "success");
+        }
+
+        function addRingNode() {
+            if(ringNodes.length >= 12) {
+                logToRing("Simulation maximum network limit of 12 system terminals hit.", "warning");
+                return;
+            }
+            let nextChar = String.fromCharCode(65 + ringNodes.length);
+            // Insert randomly safe near center coordinates space safely
+            ringNodes.push({
+                id: `ring-n-${Date.now()}`,
+                label: nextChar,
+                x: 250 + Math.random()*200,
+                y: 200 + Math.random()*150
+            });
+            renderRingNodes();
+            drawRingConnections();
+            buildRingSelectors();
+            logToRing(`Integrated dynamic Terminal System Node ${nextChar} into network circle processing routing loops.`, 'info');
+        }
+
+        function removeRingNode() {
+            if(ringNodes.length <= 3) {
+                logToRing("Ring structure topology forms require minimum operational density layer of 3 nodes.", "warning");
+                return;
+            }
+            let removed = ringNodes.pop();
+            brokenRingIndex = -1; // Reset breakage positions to avoid logical runtime index mismatch drops
+            renderRingNodes();
+            drawRingConnections();
+            buildRingSelectors();
+            logToRing(`Detached dynamic Terminal Node ${removed.label} from topology framework matrix elements.`, 'warning');
+        }
+
+        function resetRingNetwork() {
+            initRingDefault();
+        }
+
+        function triggerRingTransmission() {
+            const srcId = document.getElementById('ring-source').value;
+            const dstId = document.getElementById('ring-dest').value;
+            if(srcId === dstId) {
+                logToRing("Source node matches destination. Loop drop transmission avoided.", "warning");
+                return;
+            }
+
+            let srcIdx = ringNodes.findIndex(n => n.id === srcId);
+            let dstIdx = ringNodes.findIndex(n => n.id === dstId);
+            
+            // Calculate default standard routing path trajectory (Clockwise standard transmission)
+            let path = [];
+            let curr = srcIdx;
+            let brokenEncountered = false;
+
+            while(curr !== dstIdx) {
+                if(brokenRingIndex === curr) {
+                    brokenEncountered = true;
+                }
+                path.push(curr);
+                curr = (curr + 1) % ringNodes.length;
+            }
+            path.push(dstIdx);
+
+            if(brokenEncountered) {
+                logToRing(`Packet drop event! Path trace route disrupted by localized line fault breakdown between Node ${ringNodes[brokenRingIndex].label} and Node ${ringNodes[(brokenRingIndex+1)%ringNodes.length].label}.`, "warning");
+                animateRingPacket(path, brokenRingIndex);
+            } else {
+                logToRing(`Routing trace transmission initiated: ${path.map(i=>ringNodes[i].label).join(' ➡️ ')}`, "info");
+                animateRingPacket(path, -1);
+            }
+        }
+
+        function animateRingPacket(pathIndices, stopAtLinkIndex) {
+            const svg = document.getElementById('ring-svg');
+            
+            // Wipe pre-existing moving packet tags
+            document.querySelectorAll('.data-packet').forEach(p => p.remove());
+            document.querySelectorAll('.network-link').forEach(l => l.classList.remove('active-path'));
+            document.querySelectorAll('.node').forEach(n => n.classList.remove('active-node'));
+
+            let step = 0;
+
+            function runStep() {
+                if(step >= pathIndices.length - 1) {
+                    // Success termination path loop hitting target endpoint completely
+                    document.getElementById(ringNodes[pathIndices[pathIndices.length-1]].id).classList.add('active-node');
+                    logToRing(`Success transmission verification acknowledgement packet logged by Terminal ${ringNodes[pathIndices[pathIndices.length-1]].label}.`, "success");
+                    return;
+                }
+
+                let currentLinkSrcIdx = pathIndices[step];
+                let nextLinkDstIdx = pathIndices[step+1];
+
+                // Verify if transmission attempts to cross over physical cable layer faults
+                if(currentLinkSrcIdx === stopAtLinkIndex) {
+                    document.getElementById(ringNodes[currentLinkSrcIdx].id).classList.add('active-node');
+                    logToRing("Packet transmission aborted due to physical cable segmentation.", "warning");
+                    return;
+                }
+
+                // Visual highlight path traversal element trace lines
+                let linkEl = document.getElementById(`ring-link-${currentLinkSrcIdx}`);
+                if(linkEl) linkEl.classList.add('active-path');
+
+                let nodeEl = document.getElementById(ringNodes[currentLinkSrcIdx].id);
+                if(nodeEl) nodeEl.classList.add('active-node');
+
+                let p1 = ringNodes[currentLinkSrcIdx];
+                let p2 = ringNodes[nextLinkDstIdx];
+
+                let packet = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+                packet.setAttribute("r", "8");
+                packet.setAttribute("class", "data-packet");
+                svg.appendChild(packet);
+
+                let start = null;
+                const duration = 750; // Milliseconds per wire segment traversal hop
+
+                function animateHop(timestamp) {
+                    if (!start) start = timestamp;
+                    let progress = (timestamp - start) / duration;
+                    if (progress > 1) progress = 1;
+
+                    let currX = p1.x + (p2.x - p1.x) * progress;
+                    let currY = p1.y + (p2.y - p1.y) * progress;
+                    packet.setAttribute("cx", currX);
+                    packet.setAttribute("cy", currY);
+
+                    if (progress < 1) {
+                        requestAnimationFrame(animateHop);
+                    } else {
+                        packet.remove();
+                        step++;
+                        runStep();
+                    }
+                }
+                requestAnimationFrame(animateHop);
+            }
+            runStep();
+        }
+/* ==========================================================================
+           TREE TOPOLOGY INFRASTRUCTURE CORE
+           ========================================================================== */
+        let treeNodes = [];
+        // Preset structural hierarchy nodes parameters
+        // Roles: 'root', 'branch', 'terminal'
+
+        function logToTree(msg, type='info') {
+            const container = document.getElementById('tree-logs');
+            container.innerHTML += `<div class="log-entry log-${type}">[${new Date().toLocaleTimeString()}] ${msg}</div>`;
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function buildTreeSelectors() {
+            const srcSel = document.getElementById('tree-source');
+            const dstSel = document.getElementById('tree-dest');
+            srcSel.innerHTML = ''; dstSel.innerHTML = '';
+            treeNodes.forEach(n => {
+                srcSel.innerHTML += `<option value="${n.id}">[${n.role.toUpperCase()}] ${n.label}</option>`;
+                dstSel.innerHTML += `<option value="${n.id}">[${n.role.toUpperCase()}] ${n.label}</option>`;
+            });
+            if(treeNodes.length > 5) dstSel.selectedIndex = 5;
+        }
+
+        function drawTreeConnections() {
+            const svg = document.getElementById('tree-svg');
+            svg.innerHTML = '';
+
+            treeNodes.forEach(n => {
+                if(n.parentId) {
+                    let pNode = treeNodes.find(p => p.id === n.parentId);
+                    if(pNode) {
+                        let line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+                        line.setAttribute("x1", pNode.x);
+                        line.setAttribute("y1", pNode.y);
+                        line.setAttribute("x2", n.x);
+                        line.setAttribute("y2", n.y);
+                        
+                        // If parent connection point breaks, downstream tree elements disconnect
+                        let isBroken = pNode.failed || n.failed || isParentChainBroken(pNode.id);
+                        line.setAttribute("class", `network-link ${isBroken ? 'failed-link' : ''}`);
+                        line.id = `tree-link-${pNode.id}-${n.id}`;
+                        svg.appendChild(line);
+                    }
+                }
+            });
+        }
+
+        function isParentChainBroken(nodeId) {
+            let curr = treeNodes.find(n => n.id === nodeId);
+            while(curr && curr.parentId) {
+                let p = treeNodes.find(n => n.id === curr.parentId);
+                if(p && p.failed) return true;
+                curr = p;
+            }
+            return false;
+        }
+
+        function renderTreeNodes() {
+            const layer = document.getElementById('tree-nodes-layer');
+            layer.innerHTML = '';
+
+            treeNodes.forEach(n => {
+                let div = document.createElement('div');
+                div.id = n.id;
+                
+                let isDisconnected = n.failed || (n.parentId && isParentChainBroken(n.id));
+                div.className = `node ${isDisconnected ? 'failed-node' : ''}`;
+                div.style.left = n.x + "px";
+                div.style.top = n.y + "px";
+
+                let icon = "💻";
+                if(n.role === 'root') icon = "🔀";
+                if(n.role === 'branch') icon = "🧳";
+                
+                div.innerHTML = `<div class="node-icon">${icon}</div><div class="node-label">${n.label}</div>`;
+                layer.appendChild(div);
+
+                // Clicking Hub centers down to toggle hardware operational breakdown faults states
+                if(n.role === 'root' || n.role === 'branch') {
+                    div.style.borderStyle = "dashed";
+                    div.title = "Click to compromise hub infrastructure";
+                    div.onclick = (e) => {
+                        // Avoid firing overlapping duplicate execution calls when element drag releases
+                        if(e.offsetX === 0 && e.offsetY === 0) return; 
+                        n.failed = !n.failed;
+                        logToTree(`Hub hardware status change on [${n.label}]: ${n.failed ? 'MALFUNCTION OFFLINE' : 'ONLINE NOMINAL'}`, n.failed ? 'warning':'success');
+                        renderTreeNodes();
+                        drawTreeConnections();
+                    };
+                }
+
+                makeNodeDraggable(div, (id, newX, newY) => {
+                    let targetNode = treeNodes.find(node => node.id === id);
+                    if(targetNode) {
+                        targetNode.x = newX;
+                        targetNode.y = newY;
+                        drawTreeConnections();
+                    }
+                });
+            });
+        }
+
+        function initTreeDefault() {
+            // Build tree mapping tracking coordinate planes structures layers safely
+            treeNodes = [
+                // Top Core Layer
+                { id: 't-root', label: 'Root-Hub', role: 'root', parentId: null, x: 400, y: 70, failed: false },
+                
+                // Distribution Middle Layer
+                { id: 't-b1', label: 'Branch-Hub-1', role: 'branch', parentId: 't-root', x: 220, y: 220, failed: false },
+                { id: 't-b2', label: 'Branch-Hub-2', role: 'branch', parentId: 't-root', x: 580, y: 220, failed: false },
+                
+                // Bottom End Nodes Layer
+                { id: 't-c1', label: 'Workstation-A', role: 'terminal', parentId: 't-b1', x: 100, y: 420, failed: false },
+                { id: 't-c2', label: 'Workstation-B', role: 'terminal', parentId: 't-b1', x: 220, y: 420, failed: false },
+                { id: 't-c3', label: 'Workstation-C', role: 'terminal', parentId: 't-b1', x: 340, y: 420, failed: false },
+                
+                { id: 't-c4', label: 'Workstation-D', role: 'terminal', parentId: 't-b2', x: 480, y: 420, failed: false },
+                { id: 't-c5', label: 'Workstation-E', role: 'terminal', parentId: 't-b2', x: 600, y: 420, failed: false },
+                { id: 't-c6', label: 'Workstation-F', role: 'terminal', parentId: 't-b2', x: 720, y: 420, failed: false }
+            ];
+
+            renderTreeNodes();
+            drawTreeConnections();
+            buildTreeSelectors();
+            logToTree("Hierarchical infrastructure configuration initialized safely.", "success");
+        }
+
+        function resetTreeNetwork() {
+            treeNodes.forEach(n => n.failed = false);
+            renderTreeNodes();
+            drawTreeConnections();
+            logToTree("All segmented elements operational parameters set back to optimal values.", "success");
+        }
+
+        // Trace standard traversal routing path upstream/downstream across core hubs array
+        function getTreePath(srcId, dstId) {
+            function getAncestors(id) {
+                let list = [];
+                let curr = treeNodes.find(n => n.id === id);
+                while(curr) {
+                    list.push(curr.id);
+                    curr = treeNodes.find(n => n.id === curr.parentId);
+                }
+                return list;
+            }
+
+            let srcAncestors = getAncestors(srcId);
+            let dstAncestors = getAncestors(dstId);
+
+            // Locate Lowest Common Ancestor (LCA) node element intersection index
+            let lca = null;
+            for(let id of srcAncestors) {
+                if(dstAncestors.includes(id)) {
+                    lca = id;
+                    break;
+                }
+            }
+
+            if(!lca) return [];
+
+            // Assemble climbing path sequence line
+            let upPath = [];
+            for(let id of srcAncestors) {
+                upPath.push(id);
+                if(id === lca) break;
+            }
+
+            let downPath = [];
+            for(let id of dstAncestors) {
+                if(id === lca) break;
+                downPath.unshift(id); // Reverse descending sequence placement array ordering safely
+            }
+
+            return upPath.concat(downPath);
+        }
+
+        function triggerTreeTransmission() {
+            const srcId = document.getElementById('tree-source').value;
+            const dstId = document.getElementById('tree-dest').value;
+            if(srcId === dstId) {
+                logToTree("Routing shortcut avoided. Source matches target node endpoint.", "warning");
+                return;
+            }
+
+            let fullNodePathIds = getTreePath(srcId, dstId);
+            logToTree(`Calculating dynamic tree mesh pathing trajectory trace lines...`, 'info');
+
+            // Verify if tracking line paths intersect disrupted offline nodes fields
+            let brokenIndex = -1;
+            for(let i=0; i<fullNodePathIds.length; i++) {
+                let n = treeNodes.find(node => node.id === fullNodePathIds[i]);
+                if(n.failed || isParentChainBroken(n.id)) {
+                    brokenIndex = i;
+                    break;
+                }
+            }
+
+            if(brokenIndex !== -1) {
+                logToTree(`Packet drop failure recorded at step segment point ${brokenIndex}! Hardware element along path is offline.`, "warning");
+                animateTreePacket(fullNodePathIds, brokenIndex);
+            } else {
+                let nameTrace = fullNodePathIds.map(id => treeNodes.find(n=>n.id===id).label).join(' ➡️ ');
+                logToTree(`Transmission trace line success mapped: ${nameTrace}`, "success");
+                animateTreePacket(fullNodePathIds, -1);
+            }
+        }
+
+        function animateTreePacket(pathIds, brokenAtIdx) {
+            const svg = document.getElementById('tree-svg');
+            document.querySelectorAll('.data-packet').forEach(p => p.remove());
+            document.querySelectorAll('.network-link').forEach(l => l.classList.remove('active-path'));
+            document.querySelectorAll('.node').forEach(n => n.classList.remove('active-node'));
+
+            let step = 0;
+
+            function runStep() {
+                if(step === brokenAtIdx) {
+                    logToTree(`Packet stalled out and dropped at inaccessible target layer link interface.`, "warning");
+                    return;
+                }
+
+                if(step >= pathIds.length) {
+                    logToTree(`End-to-End Delivery confirmation handshake established safely.`, "success");
+                    return;
+                }
+
+                let currentId = pathIds[step];
+                let currentEl = document.getElementById(currentId);
+                if(currentEl) currentEl.classList.add('active-node');
+
+                if(step < pathIds.length - 1 && step !== brokenAtIdx) {
+                    let nextId = pathIds[step+1];
+                    
+                    // Highlight connecting paths link segments explicitly
+                    let linkEl = document.getElementById(`tree-link-${currentId}-${nextId}`) || document.getElementById(`tree-link-${nextId}-${currentId}`);
+                    if(linkEl) linkEl.classList.add('active-path');
+
+                    let p1 = treeNodes.find(n => n.id === currentId);
+                    let p2 = treeNodes.find(n => n.id === nextId);
+
+                    let packet = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+                    packet.setAttribute("r", "8");
+                    packet.setAttribute("class", "data-packet");
+                    svg.appendChild(packet);
+
+                    let start = null;
+                    const duration = 600;
+
+                    function animateHop(timestamp) {
+                        if (!start) start = timestamp;
+                        let progress = (timestamp - start) / duration;
+                        if (progress > 1) progress = 1;
+
+                        let currX = p1.x + (p2.x - p1.x) * progress;
+                        let currY = p1.y + (p2.y - p1.y) * progress;
+                        packet.setAttribute("cx", currX);
+                        packet.setAttribute("cy", currY);
+
+                        if (progress < 1) {
+                            requestAnimationFrame(animateHop);
+                        } else {
+                            packet.remove();
+                            step++;
+                            runStep();
+                        }
+                    }
+                    requestAnimationFrame(animateHop);
+                }
+            }
+            runStep();
+        }
+
+
+        /* ==========================================================================
+           ANALYTICAL COMPARISON ANALYTICS ENGINE
+           ========================================================================== */
+        function updateComparison() {
+            const numNodes = parseInt(document.getElementById('slide-nodes').value);
+            const cableCost = parseInt(document.getElementById('slide-cable').value);
+            const hubCost = parseInt(document.getElementById('slide-hub').value);
+
+            document.getElementById('val-nodes').innerText = numNodes;
+            document.getElementById('val-cable').innerText = `$${cableCost}`;
+            document.getElementById('val-hub').innerText = `$${hubCost}`;
+
+            // Calculation formulas mapping structural theoretical pricing layers
+            // Ring metrics cost profile calculation parameters logic
+            let ringTotalCost = (numNodes * 15 * cableCost); 
+            let ringReliability = "Low-Med";
+            let ringScalability = "Medium";
+
+            // Tree infrastructure pricing calculations formulas setup
+            let estimatedHubsCount = Math.max(1, Math.ceil(numNodes / 4));
+            let treeTotalCost = (numNodes * 22 * cableCost) + (estimatedHubsCount * hubCost);
+            let treeReliability = numNodes > 15 ? "High (Zoned)" : "High";
+            let treeScalability = "Excellent";
+
+            // Post metrics calculation details values onto DOM selectors interfaces elements
+            document.getElementById('ring-cost').innerText = `$${ringTotalCost}`;
+            document.getElementById('ring-rel').innerText = ringReliability;
+            document.getElementById('ring-scale').innerText = ringScalability;
+
+            document.getElementById('tree-cost').innerText = `$${treeTotalCost}`;
+            document.getElementById('tree-rel').innerText = treeReliability;
+            document.getElementById('tree-scale').innerText = treeScalability;
+        }
+
+
+        /* ==========================================================================
+           COMPETENCY EVALUATION TESTING SYSTEM (QUIZ)
+           ========================================================================== */
+        const quizQuestions = [
+            { q: "Which topology connects all devices sequentially in a continuous closed loop?", a: ["Ring Topology", "Tree Topology", "Mesh Topology", "Bus Topology"], c: 0 },
+            { q: "What is a primary system point vulnerability risk of a standard Ring Topology profile layout configuration?", a: ["High collision rates", "A single line break splits communication loops entirely", "Excessive concentration hardware layout costs", "Requires massive central terminating resistors"], c: 1 },
+            { q: "In a Tree Topology configuration profile, what happens when the absolute top Root Hub suffers structural failure?", a: ["Only terminal clients crash out", "Data paths swap automatically back to ring frames", "Entire structure architecture distribution branches break offline", "Network traffic speed doubles via direct link optimization"], c: 2 },
+            { q: "Which network topology combines characteristics of linear Bus and Star configurations?", a: ["Ring", "Mesh", "Tree", "Hybrid Grid Mesh"], c: 2 },
+            { q: "What advantage does a Tree configuration hold over a basic multi-node Ring circuit format?", a: ["Isolation capabilities per branch zone layers", "Zero cable distribution metrics footprint costs", "No active hardware requirement parts needed", "Simplistic circular trace loops matching tracking paths"], c: 0 },
+            { q: "What physical element is handled directly using an SVG trace mapping approach in this interactive program configuration?", a: ["Network data encoding packages schemas", "Physical connection layer line segments tracking layouts", "Memory interface buffers storage blocks", "CSS layout translation filters vectors"], c: 1 },
+            { q: "What metric scoring profile scales up directly inside a Tree setup when intermediate hardware branch units are added?", a: ["Physical structural link lengths drop values", "Fixed capital equipment infrastructure layout costs", "Data loop collision degradation frequencies", "Resistor termination requirements specifications"], c: 1 },
+            { q: "How are tokens or communication paths fundamentally routed around regular ring loop formats configuration profiles?", a: ["Random distribution sweeps", "Point-to-point step-hop processing loops sequentially", "Direct broadcast mapping to all layout units simultaneously", "Root hub address allocation structures checking arrays"], c: 1 },
+            { q: "Which standard structural metric scales linearly with every single added element point inside simple ring configurations?", a: ["Number of centralized hardware trunk nodes", "Cable sequence connection lines counts", "Dynamic collision domain matrix grids configurations", "Root parent tracking parameters arrays"], c: 1 },
+            { q: "What structural method ensures isolated localized networks can continue operational running profiles if branch nodes collapse safely?", a: ["Zoned compartmentalization layout segmentation architectures", "Total reliance on absolute root hardware trunks profiles", "Closing structural pathways loops back into circular configurations", "Eliminating tracking elements options maps"], c: 0 }
+        ];
+
+        let currentQuestionIdx = 0;
+        let userQuizScore = 0;
+
+        function renderQuizQuestion() {
+            const container = document.getElementById('quiz-body');
+            if(currentQuestionIdx >= quizQuestions.length) {
+                // Completed layout scores display configuration view setup
+                let passingPercent = (userQuizScore / quizQuestions.length) * 100;
+                container.innerHTML = `
+                    <div style="text-align:center; padding:2rem 0;">
+                        <h3 style="font-size:2rem; color:var(--success);">Evaluation Complete!</h3>
+                        <p style="font-size:1.3rem; margin:1rem 0;">Final Competency Metric: <strong>${userQuizScore} / ${quizQuestions.length}</strong> (${passingPercent}%)</p>
+                        <button class="btn" style="margin:0 auto;" onclick="restartQuizSystem()">🔄 Retake Performance Exam</button>
+                    </div>
+                `;
+                document.getElementById('quiz-progress').style.width = "100%";
+                return;
+            }
+
+            // Update Progress bar width values tracking percentages progress metrics values
+            let pct = (currentQuestionIdx / quizQuestions.length) * 100;
+            document.getElementById('quiz-progress').style.width = `${pct}%`;
+
+            let qData = quizQuestions[currentQuestionIdx];
+            let optionsHTML = qData.a.map((opt, idx) => `
+                <button class="option-btn" onclick="evaluateQuizAnswer(${idx})">👉 ${opt}</button>
+            `).join('');
+
+            container.innerHTML = `
+                <h3 style="margin-bottom:0.5rem; color:#fff;">Question ${currentQuestionIdx + 1} of ${quizQuestions.length}</h3>
+                <p style="font-size:1.15rem; color:var(--secondary); margin-bottom:1.5rem;">${qData.q}</p>
+                <div class="options-list">${optionsHTML}</div>
+            `;
+        }
+
+        function evaluateQuizAnswer(selectedIdx) {
+            let qData = quizQuestions[currentQuestionIdx];
+            const buttons = document.querySelectorAll('.options-list .option-btn');
+            
+            // Lock out duplicate click selections attempts processing controls
+            buttons.forEach(b => b.disabled = true);
+
+            if(selectedIdx === qData.c) {
+                buttons[selectedIdx].classList.add('correct');
+                userQuizScore++;
+            } else {
+                buttons[selectedIdx].classList.add('wrong');
+                buttons[qData.c].classList.add('correct');
+            }
+
+            setTimeout(() => {
+                currentQuestionIdx++;
+                renderQuizQuestion();
+            }, 1250);
+        }
+
+        function restartQuizSystem() {
+            currentQuestionIdx = 0;
+            userQuizScore = 0;
+            renderQuizQuestion();
+        }
+
+
+        /* ==========================================================================
+           GAMIFICATION: ARROW KEYS DATA PACKET CONTROLLER ENGINE
+           ========================================================================== */
+        const gameCanvas = document.getElementById('game-canvas');
+        const gameCtx = gameCanvas.getContext('2d');
+        let gameLoopId = null;
+        
+        let gameState = {
+            player: { x: 0, y: 0, radius: 10, speed: 4 },
+            target: { x: 0, y: 0, radius: 14 },
+            layoutType: 'ring',
+            score: 0,
+            obstacles: [], // Dynamic bounding collision vector arrays parameters
+            keys: {}
+        };
+
+        window.addEventListener('keydown', e => {
+            if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','KeyW','KeyA','KeyS','KeyD','Space'].includes(e.code)) {
+                if(document.getElementById('page-gamification').classList.contains('active-page')) {
+                     e.preventDefault(); // Lock screen window frame scrolling defaults shifts out
+                }
+            }
+            gameState.keys[e.code] = true;
+        });
+        window.addEventListener('keyup', e => { gameState.keys[e.code] = false; });
+
+        function initGame(topologyStyle) {
+            gameState.layoutType = topologyStyle;
+            document.getElementById('game-layout-type').innerText = topologyStyle === 'ring' ? 'Ring Loop Array' : 'Hierarchical Tree Mesh';
+            document.getElementById('game-status').innerText = "Active Link Tracking";
+            document.getElementById('game-status').style.color = "var(--success)";
+            
+            // Setup positioning spatial boundaries setups vectors values
+            gameState.player.x = 80;
+            gameState.player.y = 225;
+            
+            gameState.target.x = 700;
+            gameState.target.y = 225;
+
+            buildGameMapObstacles(topologyStyle);
+            
+            if(gameLoopId) cancelAnimationFrame(gameLoopId);
+            gameLoopId = requestAnimationFrame(gameLoopStep);
+        }
+
+        function buildGameMapObstacles(style) {
+            gameState.obstacles = [];
+            if(style === 'ring') {
+                // Outer ring shield box layout walls boundaries profiles parameters values setups
+                // Creates open corridor layout space channels path fields configurations sets
+                gameState.obstacles.push({x: 200, y: 0, w: 40, h: 160});
+                gameState.obstacles.push({x: 200, y: 290, w: 40, h: 160});
+                gameState.obstacles.push({x: 450, y: 120, w: 40, h: 210});
+            } else {
+                // Tree branch barrier blocks partitioning system layouts corridors
+                gameState.obstacles.push({x: 300, y: 0, w: 50, h: 240});
+                gameState.obstacles.push({x: 500, y: 200, w: 50, h: 250});
+                gameState.obstacles.push({x: 120, y: 120, w: 100, h: 40});
+            }
+        }
+
+        function gameLoopStep() {
+            // Processing execution steps calculation configurations updates updates loops variables data elements
+            let p = gameState.player;
+            let keys = gameState.keys;
+
+            if (keys['ArrowUp'] || keys['KeyW']) p.y -= p.speed;
+            if (keys['ArrowDown'] || keys['KeyS']) p.y += p.speed;
+            if (keys['ArrowLeft'] || keys['KeyA']) p.x -= p.speed;
+            if (keys['ArrowRight'] || keys['KeyD']) p.x += p.speed;
+
+            // Enforce canvas perimeter walls locks configuration parameters bounds parameters properties values
+            if(p.x < p.radius) p.x = p.radius;
+            if(p.x > gameCanvas.width - p.radius) p.x = gameCanvas.width - p.radius;
+            if(p.y < p.radius) p.y = p.radius;
+            if(p.y > gameCanvas.height - p.radius) p.y = gameCanvas.height - p.radius;
+
+            // Evaluate intersection hit boxes checks arrays over barrier fields segments parameters values properties
+            let hitObstacle = false;
+            for(let obs of gameState.obstacles) {
+                if (p.x + p.radius > obs.x && p.x - p.radius < obs.x + obs.w &&
+                    p.y + p.radius > obs.y && p.y - p.radius < obs.y + obs.h) {
+                    hitObstacle = true;
+                    break;
+                }
+            }
+
+            if(hitObstacle) {
+                document.getElementById('game-status').innerText = "PACKET COLLISION ERROR";
+                document.getElementById('game-status').style.color = "var(--danger)";
+                // Bounce back position points variables parameter values resets values
+                p.x = 80; p.y = 225;
+            }
+
+            // Target collision trigger evaluation
+            let distToTarget = Math.hypot(p.x - gameState.target.x, p.y - gameState.target.y);
+            if(distToTarget < p.radius + gameState.target.radius) {
+                gameState.score += 100;
+                document.getElementById('game-score').innerText = gameState.score;
+                document.getElementById('game-status').innerText = "FRAME DELIVERED! +100 XP";
+                document.getElementById('game-status').style.color = "var(--success)";
+                
+                // Teleport goal points elsewhere to keep game looping dynamically
+                gameState.target.y = 60 + Math.random() * 330;
+                p.x = 80; p.y = 225;
+            }
+
+            // Drawing / Rendering Pass
+            gameCtx.clearRect(0, 0, gameCanvas.width, gameCanvas.height);
+
+            // Draw Background Structural Wire Aesthetics Layer Guide Tracks
+            gameCtx.strokeStyle = "rgba(255, 255, 255, 0.04)";
+            gameCtx.lineWidth = 4;
+            gameCtx.strokeRect(40, 40, gameCanvas.width - 80, gameCanvas.height - 80);
+
+            // Draw Static Infrastructure Barrier Blocks Obstructing Tracks Fields Paths
+            gameState.obstacles.forEach(obs => {
+                gameCtx.fillStyle = "rgba(247, 37, 133, 0.35)";
+                gameCtx.strokeStyle = "var(--danger)";
+                gameCtx.lineWidth = 2;
+                gameCtx.fillRect(obs.x, obs.y, obs.w, obs.h);
+                gameCtx.strokeRect(obs.x, obs.y, obs.w, obs.h);
+            });
+
+            // Draw Goal Processing Terminal Endpoint
+            gameCtx.beginPath();
+            gameCtx.arc(gameState.target.x, gameState.target.y, gameState.target.radius, 0, Math.PI * 2);
+            gameCtx.fillStyle = "rgba(76, 201, 240, 0.2)";
+            gameCtx.strokeStyle = "var(--success)";
+            gameCtx.lineWidth = 3;
+            gameCtx.fill();
+            gameCtx.stroke();
+            
+            // Draw Target Inner Core Blinking Element Dot Pulse Point Indicator
+            gameCtx.beginPath();
+            gameCtx.arc(gameState.target.x, gameState.target.y, 5, 0, Math.PI * 2);
+            gameCtx.fillStyle = "var(--success)";
+            gameCtx.fill();
+
+            // Draw Controlled Active Traveling Light Frames Packet Pointer Node Element
+            gameCtx.beginPath();
+            gameCtx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+            gameCtx.fillStyle = "#fff";
+            gameCtx.shadowColor = "var(--primary)";
+            gameCtx.shadowBlur = 15;
+            gameCtx.fill();
+            gameCtx.shadowBlur = 0; // Turn off shadows calculation parameters after draw loop pass to optimize processing frame rates performance properties variables values maps profiles
+
+            gameLoopId = requestAnimationFrame(gameLoopStep);
+        }
+
+
+        /* ==========================================================================
+           APPLICATION STARTUP LIFECYCLE INITIALIZER HANDLER TRUNK ARCHITECTURE 
+           ========================================================================== */
+        window.addEventListener('DOMContentLoaded', () => {
+            initRingDefault();
+            initTreeDefault();
+            renderQuizQuestion();
+            updateComparison();
+        });
+    </script>
+</body>
+</html>
