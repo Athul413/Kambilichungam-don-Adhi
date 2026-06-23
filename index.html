@@ -1658,10 +1658,163 @@
 
             // Draw Background Structural Wire Aesthetics Layer Guide Tracks
             gameCtx.strokeStyle = "rgba(255, 255, 255, 0.04)";
+             /* ==========================================================================
+           GAMIFICATION: TOUCH & KEYBOARD DATA PACKET CONTROLLER ENGINE
+           ========================================================================== */
+        const gameCanvas = document.getElementById('game-canvas');
+        const gameCtx = gameCanvas.getContext('2d');
+        let gameLoopId = null;
+        
+        let gameState = {
+            player: { x: 0, y: 0, radius: 10, speed: 4 },
+            target: { x: 0, y: 0, radius: 14 },
+            layoutType: 'ring',
+            score: 0,
+            obstacles: [], 
+            keys: {},
+            touchInput: { up: false, down: false, left: false, right: false }
+        };
+
+        // Keyboard Controls (Backup)
+        window.addEventListener('keydown', e => {
+            if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','KeyW','KeyA','KeyS','KeyD','Space'].includes(e.code)) {
+                if(document.getElementById('page-gamification').classList.contains('active-page')) {
+                     e.preventDefault(); 
+                }
+            }
+            gameState.keys[e.code] = true;
+        });
+        window.addEventListener('keyup', e => { gameState.keys[e.code] = false; });
+
+        // Touch & Mouse Pointer Interactive Tracking Engine
+        function handlePointerInput(e) {
+            if (!document.getElementById('page-gamification').classList.contains('active-page')) return;
+            e.preventDefault();
+
+            // Reset touch vectors
+            gameState.touchInput.up = false;
+            gameState.touchInput.down = false;
+            gameState.touchInput.left = false;
+            gameState.touchInput.right = false;
+
+            if (e.type === 'touchend' || e.type === 'mouseup' || e.type === 'mouseleave') {
+                return; // Stop movement on release
+            }
+
+            // Get pointer coordinate mapping relative to the canvas bounding box
+            const rect = gameCanvas.getBoundingClientRect();
+            const clientX = e.type.includes('touch') ? e.touches[0].clientX : e.clientX;
+            const clientY = e.type.includes('touch') ? e.touches[0].clientY : e.clientY;
+            
+            const touchX = ((clientX - rect.left) / rect.width) * gameCanvas.width;
+            const touchY = ((clientY - rect.top) / rect.height) * gameCanvas.height;
+
+            // Determine directional intent based on distance vectors from the player node
+            const dx = touchX - gameState.player.x;
+            const dy = touchY - gameState.player.y;
+
+            if (Math.abs(dx) > 15) {
+                if (dx > 0) gameState.touchInput.right = true;
+                else gameState.touchInput.left = true;
+            }
+            if (Math.abs(dy) > 15) {
+                if (dy > 0) gameState.touchInput.down = true;
+                else gameState.touchInput.up = true;
+            }
+        }
+
+        // Bind Multi-touch and Mouse Click Drag Listeners
+        gameCanvas.addEventListener('touchstart', handlePointerInput, { passive: false });
+        gameCanvas.addEventListener('touchmove', handlePointerInput, { passive: false });
+        gameCanvas.addEventListener('touchend', handlePointerInput, { passive: false });
+        gameCanvas.addEventListener('mousedown', handlePointerInput);
+        gameCanvas.addEventListener('mousemove', (e) => { if(e.buttons === 1) handlePointerInput(e); });
+        gameCanvas.addEventListener('mouseup', handlePointerInput);
+        gameCanvas.addEventListener('mouseleave', handlePointerInput);
+
+        function initGame(topologyStyle) {
+            gameState.layoutType = topologyStyle;
+            document.getElementById('game-layout-type').innerText = topologyStyle === 'ring' ? 'Ring Loop Array' : 'Hierarchical Tree Mesh';
+            document.getElementById('game-status').innerText = "Hold Touch Screen to Guide Packet";
+            document.getElementById('game-status').style.color = "var(--success)";
+            
+            gameState.player.x = 80;
+            gameState.player.y = 225;
+            
+            gameState.target.x = 700;
+            gameState.target.y = 225;
+
+            buildGameMapObstacles(topologyStyle);
+            
+            if(gameLoopId) cancelAnimationFrame(gameLoopId);
+            gameLoopId = requestAnimationFrame(gameLoopStep);
+        }
+
+        function buildGameMapObstacles(style) {
+            gameState.obstacles = [];
+            if(style === 'ring') {
+                gameState.obstacles.push({x: 200, y: 0, w: 40, h: 160});
+                gameState.obstacles.push({x: 200, y: 290, w: 40, h: 160});
+                gameState.obstacles.push({x: 450, y: 120, w: 40, h: 210});
+            } else {
+                gameState.obstacles.push({x: 300, y: 0, w: 50, h: 240});
+                gameState.obstacles.push({x: 500, y: 200, w: 50, h: 250});
+                gameState.obstacles.push({x: 120, y: 120, w: 100, h: 40});
+            }
+        }
+
+        function gameLoopStep() {
+            let p = gameState.player;
+            let keys = gameState.keys;
+            let touch = gameState.touchInput;
+
+            // Merged input processing (Keyboard OR Touch/Click holds)
+            if (keys['ArrowUp'] || keys['KeyW'] || touch.up) p.y -= p.speed;
+            if (keys['ArrowDown'] || keys['KeyS'] || touch.down) p.y += p.speed;
+            if (keys['ArrowLeft'] || keys['KeyA'] || touch.left) p.x -= p.speed;
+            if (keys['ArrowRight'] || keys['KeyD'] || touch.right) p.x += p.speed;
+
+            // Frame bounds restriction mechanics
+            if(p.x < p.radius) p.x = p.radius;
+            if(p.x > gameCanvas.width - p.radius) p.x = gameCanvas.width - p.radius;
+            if(p.y < p.radius) p.y = p.radius;
+            if(p.y > gameCanvas.height - p.radius) p.y = gameCanvas.height - p.radius;
+
+            let hitObstacle = false;
+            for(let obs of gameState.obstacles) {
+                if (p.x + p.radius > obs.x && p.x - p.radius < obs.x + obs.w &&
+                    p.y + p.radius > obs.y && p.y - p.radius < obs.y + obs.h) {
+                    hitObstacle = true;
+                    break;
+                }
+            }
+
+            if(hitObstacle) {
+                document.getElementById('game-status').innerText = "PACKET COLLISION ERROR";
+                document.getElementById('game-status').style.color = "var(--danger)";
+                p.x = 80; p.y = 225;
+                // Clear touch state to avoid auto-running instantly back into the obstacle
+                touch.up = touch.down = touch.left = touch.right = false;
+            }
+
+            let distToTarget = Math.hypot(p.x - gameState.target.x, p.y - gameState.target.y);
+            if(distToTarget < p.radius + gameState.target.radius) {
+                gameState.score += 100;
+                document.getElementById('game-score').innerText = gameState.score;
+                document.getElementById('game-status').innerText = "FRAME DELIVERED! +100 XP";
+                document.getElementById('game-status').style.color = "var(--success)";
+                
+                gameState.target.y = 60 + Math.random() * 330;
+                p.x = 80; p.y = 225;
+                touch.up = touch.down = touch.left = touch.right = false;
+            }
+
+            gameCtx.clearRect(0, 0, gameCanvas.width, gameCanvas.height);
+
+            gameCtx.strokeStyle = "rgba(255, 255, 255, 0.04)";
             gameCtx.lineWidth = 4;
             gameCtx.strokeRect(40, 40, gameCanvas.width - 80, gameCanvas.height - 80);
 
-            // Draw Static Infrastructure Barrier Blocks Obstructing Tracks Fields Paths
             gameState.obstacles.forEach(obs => {
                 gameCtx.fillStyle = "rgba(247, 37, 133, 0.35)";
                 gameCtx.strokeStyle = "var(--danger)";
@@ -1670,7 +1823,6 @@
                 gameCtx.strokeRect(obs.x, obs.y, obs.w, obs.h);
             });
 
-            // Draw Goal Processing Terminal Endpoint
             gameCtx.beginPath();
             gameCtx.arc(gameState.target.x, gameState.target.y, gameState.target.radius, 0, Math.PI * 2);
             gameCtx.fillStyle = "rgba(76, 201, 240, 0.2)";
@@ -1679,24 +1831,22 @@
             gameCtx.fill();
             gameCtx.stroke();
             
-            // Draw Target Inner Core Blinking Element Dot Pulse Point Indicator
             gameCtx.beginPath();
             gameCtx.arc(gameState.target.x, gameState.target.y, 5, 0, Math.PI * 2);
             gameCtx.fillStyle = "var(--success)";
             gameCtx.fill();
 
-            // Draw Controlled Active Traveling Light Frames Packet Pointer Node Element
             gameCtx.beginPath();
             gameCtx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
             gameCtx.fillStyle = "#fff";
             gameCtx.shadowColor = "var(--primary)";
             gameCtx.shadowBlur = 15;
             gameCtx.fill();
-            gameCtx.shadowBlur = 0; // Turn off shadows calculation parameters after draw loop pass to optimize processing frame rates performance properties variables values maps profiles
+            gameCtx.shadowBlur = 0; 
 
             gameLoopId = requestAnimationFrame(gameLoopStep);
         }
-
+        
 
         /* ==========================================================================
            APPLICATION STARTUP LIFECYCLE INITIALIZER HANDLER TRUNK ARCHITECTURE 
