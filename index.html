@@ -1431,17 +1431,57 @@
            COMPETENCY EVALUATION TESTING SYSTEM (QUIZ)
            ========================================================================== */
         const quizQuestions = [
-            { q: "Which topology connects all devices sequentially in a continuous closed loop?", a: ["Ring Topology", "Tree Topology", "Mesh Topology", "Bus Topology"], c: 0 },
-            { q: "What is a primary system point vulnerability risk of a standard Ring Topology profile layout configuration?", a: ["High collision rates", "A single line break splits communication loops entirely", "Excessive concentration hardware layout costs", "Requires massive central terminating resistors"], c: 1 },
-            { q: "In a Tree Topology configuration profile, what happens when the absolute top Root Hub suffers structural failure?", a: ["Only terminal clients crash out", "Data paths swap automatically back to ring frames", "Entire structure architecture distribution branches break offline", "Network traffic speed doubles via direct link optimization"], c: 2 },
-            { q: "Which network topology combines characteristics of linear Bus and Star configurations?", a: ["Ring", "Mesh", "Tree", "Hybrid Grid Mesh"], c: 2 },
-            { q: "What advantage does a Tree configuration hold over a basic multi-node Ring circuit format?", a: ["Isolation capabilities per branch zone layers", "Zero cable distribution metrics footprint costs", "No active hardware requirement parts needed", "Simplistic circular trace loops matching tracking paths"], c: 0 },
-            { q: "What physical element is handled directly using an SVG trace mapping approach in this interactive program configuration?", a: ["Network data encoding packages schemas", "Physical connection layer line segments tracking layouts", "Memory interface buffers storage blocks", "CSS layout translation filters vectors"], c: 1 },
-            { q: "What metric scoring profile scales up directly inside a Tree setup when intermediate hardware branch units are added?", a: ["Physical structural link lengths drop values", "Fixed capital equipment infrastructure layout costs", "Data loop collision degradation frequencies", "Resistor termination requirements specifications"], c: 1 },
-            { q: "How are tokens or communication paths fundamentally routed around regular ring loop formats configuration profiles?", a: ["Random distribution sweeps", "Point-to-point step-hop processing loops sequentially", "Direct broadcast mapping to all layout units simultaneously", "Root hub address allocation structures checking arrays"], c: 1 },
-            { q: "Which standard structural metric scales linearly with every single added element point inside simple ring configurations?", a: ["Number of centralized hardware trunk nodes", "Cable sequence connection lines counts", "Dynamic collision domain matrix grids configurations", "Root parent tracking parameters arrays"], c: 1 },
-            { q: "What structural method ensures isolated localized networks can continue operational running profiles if branch nodes collapse safely?", a: ["Zoned compartmentalization layout segmentation architectures", "Total reliance on absolute root hardware trunks profiles", "Closing structural pathways loops back into circular configurations", "Eliminating tracking elements options maps"], c: 0 }
-        ];
+    {
+        q: "Which topology connects devices in a closed circular path?",
+        a: ["Star Topology", "Ring Topology", "Bus Topology", "Mesh Topology"],
+        c: 1
+    },
+    {
+        q: "In a Ring Topology, each device is directly connected to how many neighboring devices?",
+        a: ["One", "Two", "Three", "All devices"],
+        c: 1
+    },
+    {
+        q: "What is a major disadvantage of a traditional Ring Topology?",
+        a: ["High hardware cost", "Requires a server", "A single link failure can disrupt the network", "Cannot transmit data"],
+        c: 2
+    },
+    {
+        q: "Which topology follows a hierarchical parent-child structure?",
+        a: ["Ring Topology", "Bus Topology", "Tree Topology", "Mesh Topology"],
+        c: 2
+    },
+    {
+        q: "Tree Topology is primarily a combination of which two topologies?",
+        a: ["Ring and Mesh", "Star and Bus", "Bus and Ring", "Star and Mesh"],
+        c: 1
+    },
+    {
+        q: "What is the topmost node in a Tree Topology called?",
+        a: ["Leaf Node", "Root Node", "Branch Node", "Terminal Node"],
+        c: 1
+    },
+    {
+        q: "Which topology is generally easier to expand by adding new branches?",
+        a: ["Ring Topology", "Tree Topology", "Bus Topology", "Point-to-Point Topology"],
+        c: 1
+    },
+    {
+        q: "If the root node fails in a Tree Topology, what is the likely result?",
+        a: ["Network speed increases", "Nothing happens", "Large sections of the network may become inaccessible", "Only one device disconnects"],
+        c: 2
+    },
+    {
+        q: "How does data typically travel in a Ring Topology?",
+        a: ["Through a central hub", "From node to node around the ring", "Directly to all devices at once", "Using wireless signals only"],
+        c: 1
+    },
+    {
+        q: "Which topology provides better fault isolation by separating devices into branches?",
+        a: ["Ring Topology", "Bus Topology", "Tree Topology", "Point-to-Point Topology"],
+        c: 2
+    }
+];
 
         let currentQuestionIdx = 0;
         let userQuizScore = 0;
